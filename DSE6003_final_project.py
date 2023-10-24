@@ -8,8 +8,10 @@ Created on Wed Oct 18 21:08:03 2023
 import pandas as pd
 
 data = pd.read_excel("Merr.Customer.Survey (2).xlsx")
+data.dropna()
 
 quasi_data = data[['Region', 'Gender', 'Age', 'EducationYears', 'JobCategory', 'HouseholdIncome']]
+
 
 def de_id_age(value):
     if value >= 18 and value < 26:
@@ -38,6 +40,7 @@ def de_id_income(value):
     elif value > 120:
         return "120001+"
     
+    
 def de_id_education(value):
     if value < 11:
         return "0-11"
@@ -48,11 +51,13 @@ def de_id_education(value):
     elif value > 19:
         return "20-23"
 
+
 def de_id_region(value):
     if value >= 1 and value <=3:
         return "1-3"
     elif value > 3:
         return "4-5"
+
 
 quasi_data['age_de_id'] = quasi_data['Age'].map(de_id_age)
 quasi_data['income_de_id'] = quasi_data['HouseholdIncome'].map(de_id_income)
@@ -62,14 +67,16 @@ quasi_data['region_de_id'] = quasi_data['Region'].map(de_id_region)
 # Probability of attempt based on Verizon DBIR - 83% are from external adversaries
 pr_attempt = 1 - 0.83
 
+# Number of customers with Merrimac Communications before sale
 merr_customers = 6000
-us_pop = 335600000
+# U.S. Adult Population
+us_pop = 260836730
 
 # Probability of an analyst knowing someone in the data set
 pr_acquaintance = 1 - ((1-(merr_customers/us_pop))**150)
 
-# Probability of a data breach is 85% for small to mid-sized companies
-pr_breach = 0.85
+# Probability of a data breach is 60% for large companies
+pr_breach = 0.60
 
 eq_classes = quasi_data.groupby(['age_de_id', 'Gender', 'region_de_id', 'edu_de_id', 'income_de_id']).size().reset_index()
 eq_classes.rename(columns = {0: "count"}, inplace=True)
@@ -80,6 +87,7 @@ eq_classes['scenario_1'] = pr_attempt * eq_classes['pr_re_id']
 eq_classes['scenario_2'] = pr_acquaintance * eq_classes['pr_re_id']
 eq_classes['scenario_3'] = pr_breach * eq_classes['pr_re_id']
 eq_classes['scenario_4'] = 1.00 * eq_classes['pr_re_id']
+
 
 def determine_risk_range(value):
     if value < 0.05:
@@ -101,4 +109,19 @@ eq_classes['s2.risk'] = eq_classes['scenario_2'].map(determine_risk_range)
 eq_classes['s3.risk'] = eq_classes['scenario_3'].map(determine_risk_range)
 eq_classes['s4.risk'] = eq_classes['scenario_4'].map(determine_risk_range)
 
-eq_classes.groupby('s1.risk').size()
+s1_prob = eq_classes.groupby('s1.risk').size().reset_index()
+s1_prob.rename(columns ={0: "count"}, inplace=True)
+s1_prob['percentage'] = s1_prob['count'] / s1_prob['count'].sum()
+
+s2_prob = eq_classes.groupby('s2.risk').size().reset_index()
+s2_prob.rename(columns ={0: "count"}, inplace=True)
+s2_prob['percentage'] = s2_prob['count'] / s2_prob['count'].sum()
+
+s3_prob = eq_classes.groupby('s3.risk').size().reset_index()
+s3_prob.rename(columns ={0: "count"}, inplace=True)
+s3_prob['percentage'] = s3_prob['count'] / s3_prob['count'].sum()
+
+s4_prob = eq_classes.groupby('s4.risk').size().reset_index()
+s4_prob.rename(columns ={0: "count"}, inplace=True)
+s4_prob['percentage'] = s4_prob['count'] / s4_prob['count'].sum()
+
